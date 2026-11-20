@@ -1,65 +1,139 @@
-import io
 
 import streamlit as st
-from deep_translator import GoogleTranslator
-from gtts import gTTS, lang as gtts_lang
+from deep_translator import MyMemoryTranslator
+from langdetect import detect, LangDetectException
 
-st.set_page_config(page_title="Language Translation Tool", page_icon="🌐")
-st.title("🌐 Language Translation Tool")
-st.caption("CodeAlpha AI Internship - Task 1")
+st.set_page_config(
+    page_title="JARVIS Translation Tool",
+    page_icon="🌐",
+    layout="centered"
+)
 
+st.title("🌐 JARVIS Translation Tool")
+st.subheader("Smart Language Translation")
+st.write("Translate text between multiple languages easily.")
 
-@st.cache_data
-def get_languages():
-    # {"english": "en", "hindi": "hi", ...}
-    return GoogleTranslator().get_supported_languages(as_dict=True)
+LANGUAGES = {
+    "English": "en-GB",
+    "Hindi": "hi-IN",
+    "French": "fr-FR",
+    "German": "de-DE",
+    "Spanish": "es-ES",
+    "Japanese": "ja-JP",
+    "Chinese": "zh-CN",
+    "Arabic": "ar-SA",
+    "Bengali": "bn-IN",
+    "Tamil": "ta-IN",
+    "Telugu": "te-IN",
+    "Portuguese": "pt-PT",
+    "Russian": "ru-RU",
+    "Italian": "it-IT",
+    "Korean": "ko-KR",
+    "Urdu": "ur-PK"
+}
 
+DETECTED_CODES = {
+    "en": "en-GB",
+    "hi": "hi-IN",
+    "fr": "fr-FR",
+    "de": "de-DE",
+    "es": "es-ES",
+    "ja": "ja-JP",
+    "zh-cn": "zh-CN",
+    "ar": "ar-SA",
+    "bn": "bn-IN",
+    "ta": "ta-IN",
+    "te": "te-IN",
+    "pt": "pt-PT",
+    "ru": "ru-RU",
+    "it": "it-IT",
+    "ko": "ko-KR",
+    "ur": "ur-PK"
+}
 
-languages = get_languages()
-names = sorted(languages.keys())
+text = st.text_area(
+    "Enter your text",
+    placeholder="Type text here...",
+    height=150
+)
 
-col1, col2, col3 = st.columns([5, 1, 5])
+col1, col2 = st.columns(2)
+
 with col1:
-    src_name = st.selectbox(
-        "From", ["auto detect"] + names, index=0
+    source = st.selectbox(
+        "Source Language",
+        ["Auto Detect"] + list(LANGUAGES.keys())
     )
+
 with col2:
-    st.write("")
-    st.write("")
-    st.markdown("### ➜")
-with col3:
-    tgt_name = st.selectbox("To", names, index=names.index("hindi"))
+    target = st.selectbox(
+        "Target Language",
+        list(LANGUAGES.keys()),
+        index=1
+    )
 
-text = st.text_area("Enter text", height=160, max_chars=5000,
-                    placeholder="Type or paste text here...")
+if st.button("Translate 🌐", use_container_width=True):
 
-if st.button("Translate", type="primary"):
     if not text.strip():
-        st.warning("Please enter some text first.")
+        st.warning("Please enter some text.")
+
     else:
-        src_code = "auto" if src_name == "auto detect" else languages[src_name]
-        tgt_code = languages[tgt_name]
         try:
-            with st.spinner("Translating..."):
-                result = GoogleTranslator(source=src_code, target=tgt_code).translate(text)
-            st.session_state["result"] = result
-            st.session_state["tgt_code"] = tgt_code
-        except Exception as e:
-            st.error(f"Translation failed: {e}")
+            if source == "Auto Detect":
+                detected = detect(text)
+                source_code = DETECTED_CODES.get(detected)
 
-if "result" in st.session_state:
-    st.subheader("Translation")
-    # st.code shows a built-in copy button at the top-right
-    st.code(st.session_state["result"], language=None, wrap_lines=True)
+                if not source_code:
+                    st.error(
+                        "Detected language is not supported. "
+                        "Please select the source language manually."
+                    )
+                    st.stop()
+            else:
+                source_code = LANGUAGES[source]
 
-    if st.button("🔊 Listen"):
-        code = st.session_state["tgt_code"]
-        if code not in gtts_lang.tts_langs():
-            st.info("Text-to-speech is not available for this language.")
-        else:
-            try:
-                audio = io.BytesIO()
-                gTTS(st.session_state["result"], lang=code).write_to_fp(audio)
-                st.audio(audio.getvalue(), format="audio/mp3")
-            except Exception as e:
-                st.error(f"Could not generate audio: {e}")
+            target_code = LANGUAGES[target]
+
+            if source_code == target_code:
+                st.info("Both languages are the same.")
+
+            else:
+                with st.spinner("Translating..."):
+                    translator = MyMemoryTranslator(
+                        source=source_code,
+                        target=target_code
+                    )
+                    result = translator.translate(text)
+
+                if result:
+                    st.success("Translation completed!")
+
+                    st.subheader("Translated Text")
+                    st.text_area(
+                        "Translation Result",
+                        value=result,
+                        height=150
+                    )
+
+                    st.download_button(
+                        label="Download Translation",
+                        data=result,
+                        file_name="translated_text.txt",
+                        mime="text/plain"
+                    )
+
+                else:
+                    st.error("No translation received. Please try again.")
+
+        except LangDetectException:
+            st.error(
+                "Could not detect the language. "
+                "Please select it manually."
+            )
+
+        except Exception as error:
+            st.error("Translation failed. Please try again later.")
+            st.caption(f"Error details: {error}")
+
+st.divider()
+st.caption("JARVIS Translation Tool | CodeAlpha Internship Project")
